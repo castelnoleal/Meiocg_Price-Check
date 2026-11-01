@@ -4,8 +4,8 @@
   "use strict";
   var REPO = "castelnoleal/Meiocg_Price-Check";
   var BASES = window.MEIOCG_PRICES_BASE ? [window.MEIOCG_PRICES_BASE] : [
-    "https://cdn.jsdelivr.net/gh/" + REPO + "@data/",
-    "https://raw.githubusercontent.com/" + REPO + "/data/"
+    "https://raw.githubusercontent.com/" + REPO + "/data/",   // fresh within minutes of each update
+    "https://cdn.jsdelivr.net/gh/" + REPO + "@data/"          // backup CDN (can lag up to 12h)
   ];
   var DEMO = window.MEIOCG_PRICES_DEMO || null;
   var PAGE = 60;
