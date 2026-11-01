@@ -1,0 +1,73 @@
+name: Update card prices
+
+on:
+  schedule:
+    - cron: "17 19 * * *"   # 03:17 Manila time, daily
+  push:
+    branches: [main]
+    paths: ["scraper/**", "web/**", ".github/workflows/**"]
+  workflow_dispatch:
+    inputs:
+      sets:
+        description: "Optional: only these Yuyu-tei set codes (comma list) — for testing"
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prices
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+
+      # Price data lives on the `data` branch (one squashed commit, so the repo never bloats).
+      - name: Get current data branch
+        run: |
+          if git ls-remote --exit-code --heads origin data >/dev/null; then
+            git clone --depth 1 --branch data "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" site-data
+            rm -rf site-data/.git
+          else
+            mkdir -p site-data
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: scraper/requirements.txt
+
+      - run: pip install -r scraper/requirements.txt
+
+      - name: Scrape Yuyu-tei + TCG Corner
+        env:
+          TC_COLLECTION: ${{ vars.TC_COLLECTION }}
+        run: |
+          ARGS="--out site-data"
+          SETS="${{ github.event.inputs.sets }}"
+          if [ -n "$SETS" ]; then ARGS="$ARGS --sets $SETS"; fi
+          python scraper/scrape.py $ARGS
+
+      - name: Publish to data branch
+        run: |
+          cp web/prices.js web/prices.css site-data/ 2>/dev/null || true
+          cd site-data
+          git init -q -b data
+          git config user.name  "meiocg-price-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Prices $(TZ=Asia/Manila date +%F)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" data
+          cat meta.json
+
+      - name: Refresh jsDelivr cache
+        continue-on-error: true
+        run: |
+          for f in index.json movers.json prices.js prices.css; do
+            curl -s "https://purge.jsdelivr.net/gh/${{ github.repository }}@data/$f" >/dev/null
+          done
