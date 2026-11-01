@@ -357,6 +357,10 @@
       stat("High", fmt(hi, S.cur)), stat("Low", fmt(lo, S.cur))
     ]));
 
+    if (first >= today) {
+      wrap.appendChild(el("div", { class: "mpg-chart", html: '<div style="padding:34px 16px;text-align:center;color:#a3a8bd;font-size:14px"><b style="color:#fff;font-size:16px">Price tracking started ' + esc(fdate(first, true)) + '</b><br>The chart builds automatically as prices are checked each day. Every price change will show up here.</div>' }));
+      return finish();
+    }
     // chart
     var W = Math.max(300, Math.min(860, Math.round((wrap.clientWidth || 860) - 18))), H = W < 520 ? 210 : 280, pl = W < 520 ? 54 : 64, pr = 12, pt = 14, pb = 30;
     var all = []; series.forEach(function (s) { s.win.forEach(function (p) { all.push(p[1]); }); });
@@ -376,7 +380,7 @@
       svg += '<line x1="' + pl + '" x2="' + (W - pr) + '" y1="' + y + '" y2="' + y + '" stroke="#1d2233" stroke-width="1"/>';
       svg += '<text x="' + (pl - 8) + '" y="' + (y + 4) + '" fill="#6b7089" font-size="11" text-anchor="end">' + esc(fmt(v, S.cur)) + "</text>";
     }
-    var span = x1 - x0, ticks = W < 520 ? 3 : 5;
+    var span = x1 - x0, ticks = Math.min(W < 520 ? 3 : 5, Math.max(1, Math.round(span)));
     for (var j = 0; j <= ticks; j++) {
       var dd = addDays(start, Math.round(span * j / ticks));
       svg += '<text x="' + X(dd) + '" y="' + (H - 8) + '" fill="#6b7089" font-size="11" text-anchor="' + (j === 0 ? "start" : j === ticks ? "end" : "middle") + '">' + esc(fdate(dd, span > 300)) + "</text>";
@@ -417,6 +421,8 @@
 
     wrap.appendChild(el("div", { class: "mpg-legend", html: series.map(function (s) { return '<span><span class="mpg-dot" style="background:' + s.col + '"></span>' + s.name + (s.k === "y" ? " (standard)" : c.yyt == null ? " (fallback)" : " (reference)") + "</span>"; }).join("") }));
 
+    return finish();
+    function finish() {
     // change log
     var rows = [];
     series.forEach(function (s) {
@@ -432,6 +438,7 @@
     }).join("");
     wrap.appendChild(el("div", { class: "mpg-log", html: '<table><thead><tr><th>Date</th><th>Source</th><th class="r">Price</th><th class="r">Change</th></tr></thead><tbody>' + tb + "</tbody></table>" }));
     wrap.appendChild(el("div", { class: "mpg-hnote", text: "Tracking since " + fdate(first, true) + ". A new row is added only when a store changes its price." + (S.cur !== "JPY" || series.length > 1 ? " Converted prices use today's exchange rate." : "") }));
+    }
     function stat(l, v, cls) { return el("div", { class: "mpg-stat" }, [el("small", { text: l }), el("b", { class: cls || "", text: v })]); }
   }
 

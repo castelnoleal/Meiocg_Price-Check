@@ -505,6 +505,9 @@ def main():
         else:
             tc_only.append(t)
 
+    if only:  # partial run: keep every other set's cards from the last full run
+        failed = sorted(set(failed) | (set(old_sets) - set(only)))
+
     # --- carry over cards from sets that failed this run, so they don't vanish
     if failed and old_index.get("cards"):
         cols = old_index["cols"]
