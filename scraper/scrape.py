@@ -595,7 +595,7 @@ def main():
     priced = [c for c in yyt_cards if (c.get("yyt") or c.get("tc"))]
     jpy = lambda c: c["yyt"] if c.get("yyt") else (c["tc"] * rates["USD_JPY"])
     movers = {
-        "cols": cols, "date": TODAY,
+        "cols": cols, "date": TODAY, "rates": rates,
         "gainers": [slim(c) for c in sorted([c for c in priced if (c.get("c7") or 0) > 0 and jpy(c) >= 300],
                                             key=lambda c: -c["c7"])[:24]],
         "losers": [slim(c) for c in sorted([c for c in priced if (c.get("c7") or 0) < 0 and jpy(c) >= 300],
