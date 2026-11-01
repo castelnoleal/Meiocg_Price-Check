@@ -59,6 +59,7 @@
   }
   function toObj(cols, row) { var o = {}; for (var i = 0; i < cols.length; i++) o[cols[i]] = row[i]; return o; }
   function prep(c) {
+    if (c.img === "@") c.img = "https://card.yuyu-tei.jp/ygo/100_140/" + c.set + "/" + String(c.id).split("-").pop() + ".jpg";
     c.setName = S.sets[c.set] || (c.set === "_tc" ? "TCG Corner only" : String(c.set || "").toUpperCase());
     c.key = norm([c.name, c.en, c.code, c.setName, c.set].join(" "));
     c.jpy = c.yyt != null ? c.yyt : c.tc != null ? c.tc * S.rates.USD_JPY : null;

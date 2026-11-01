@@ -203,6 +203,8 @@ def yyt_parse_set(html: str, set_code: str) -> list[dict]:
         if not m:
             continue
         cset, cid = m.group(1), m.group(2)
+        if set_code != "test" and cset != set_code:
+            continue  # "pick up" / related cards from other sets shown on this page
         key = f"{cset}-{cid}"
         if key in cards:
             continue
@@ -289,7 +291,8 @@ def yyt_crawl(http: Http, only: list[str] | None, max_sets: int | None):
             h = soup.select_one("#power h3") or soup.title
             if h:
                 sets[code] = re.sub(r"^\[[^\]]+\]\s*", "", re.split(r"[|｜]", h.get_text(" ", strip=True))[0]).strip()
-        all_cards.extend(cards)
+        seen = {c["id"] for c in all_cards[-2000:]}
+        all_cards.extend(c for c in cards if c["id"] not in seen)
         if i % 25 == 0 or i == len(codes):
             log(f"  {i}/{len(codes)} sets, {len(all_cards)} cards")
     return sets, all_cards, failed
@@ -556,6 +559,11 @@ def main():
     rates = fx_rates(http, old_index.get("rates"))
     cols = ["id", "code", "rarity", "name", "en", "set", "img", "yyt", "stock", "tc", "tch", "c7", "c30"]
     yyt_cards.sort(key=lambda c: (c["set"], c["code"], c["rarity"]))
+    for c in yyt_cards:
+        if c.get("img") == f"https://card.yuyu-tei.jp/ygo/100_140/{c['set']}/{c.get('yid')}.jpg":
+            c["img"] = "@"  # page rebuilds the standard Yuyu-tei image URL
+        elif "btn-icon" in (c.get("img") or ""):
+            c["img"] = ""
     rows = [[c.get(k) if c.get(k) is not None else ("" if k in ("en", "img", "tch") else None) for k in cols]
             for c in yyt_cards]
     index = {"updated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
