@@ -73,12 +73,32 @@ def save_debug(url: str, r):
     (d / f"{_dbg_n:02d}_{st}_{name}.html").write_text(body[:400000], "utf-8")
 
 
+CHROME = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+          "Chrome/141.0.0.0 Safari/537.36")
+PROFILES = [
+    {"User-Agent": CHROME,
+     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+     "Accept-Language": "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7", "Accept-Encoding": "gzip, deflate, br",
+     "Upgrade-Insecure-Requests": "1", "Sec-Fetch-Dest": "document", "Sec-Fetch-Mode": "navigate",
+     "Sec-Fetch-Site": "none", "Sec-Fetch-User": "?1",
+     "sec-ch-ua": '"Google Chrome";v="141", "Chromium";v="141", "Not=A?Brand";v="24"',
+     "sec-ch-ua-mobile": "?0", "sec-ch-ua-platform": '"Windows"'},
+    {"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 "
+                   "(KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1",
+     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+     "Accept-Language": "ja-JP,ja;q=0.9"},
+    {"User-Agent": UA, "Accept-Language": "ja,en;q=0.8"},
+]
+
+
 class Http:
     def __init__(self, delay: float):
         self.s = requests.Session()
-        self.s.headers.update({"User-Agent": UA, "Accept-Language": "ja,en;q=0.8"})
+        self.p = 0
+        self.s.headers.update(PROFILES[0])
         self.delay = delay
         self._last = 0.0
+        self.proxy = os.getenv("YYT_PROXY", "").rstrip("/")  # optional Cloudflare Worker relay
 
     def get(self, url: str, **kw) -> requests.Response | None:
         for attempt in range(4):
@@ -87,13 +107,22 @@ class Http:
                 time.sleep(wait)
             self._last = time.time()
             try:
-                r = self.s.get(url, timeout=30, **kw)
+                target = url
+                if self.proxy and "yuyu-tei.jp" in url:
+                    target = self.proxy + "/?url=" + requests.utils.quote(url, safe="")
+                r = self.s.get(target, timeout=30, **kw)
                 save_debug(url, r)
                 if r.status_code == 200:
                     return r
                 if r.status_code in (404, 410):
                     return None
-                gh_note("warning", f"HTTP {r.status_code} {url} (attempt {attempt + 1}) server={r.headers.get('server')}")
+                gh_note("warning", f"HTTP {r.status_code} {url} (attempt {attempt + 1}, profile {self.p}) server={r.headers.get('server')}")
+                if r.status_code in (403, 429, 503) and self.p < len(PROFILES) - 1:
+                    self.p += 1
+                    self.s.headers.clear()
+                    self.s.headers.update(PROFILES[self.p])
+                    self.s.cookies.clear()
+                    continue
             except requests.RequestException as e:
                 gh_note("warning", f"{type(e).__name__}: {e} — {url} (attempt {attempt + 1})")
             time.sleep(5 * (attempt + 1))

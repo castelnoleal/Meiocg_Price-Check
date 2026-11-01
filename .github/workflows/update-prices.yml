@@ -47,6 +47,7 @@ jobs:
       - name: Scrape Yuyu-tei + TCG Corner
         env:
           TC_COLLECTION: ${{ vars.TC_COLLECTION }}
+          YYT_PROXY: ${{ vars.YYT_PROXY }}
           SCRAPE_DEBUG_DIR: ${{ github.workspace }}/debug
         run: |
           ARGS="--out site-data"
