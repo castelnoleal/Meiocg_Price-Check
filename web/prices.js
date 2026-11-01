@@ -459,6 +459,9 @@
       var d = new DOMParser().parseFromString(html, "text/html");
       var inl = [].filter.call(d.querySelectorAll("script"), function (s) { return !s.src; });
       function run(code, where) { var s = document.createElement("script"); s.textContent = code; (where || document.body).appendChild(s); }
+      [].forEach.call(d.querySelectorAll('link[href*="fonts.g"]'), function (l) {  // Chakra Petch + Plus Jakarta Sans
+        document.head.appendChild(document.importNode(l, true));
+      });
       inl.forEach(function (s) {  // theme + site stylesheet loaders live in <head>
         if (s.closest("head") && (s.textContent.indexOf("data-theme") >= 0 || s.textContent.indexOf("mei-css") >= 0)) run(s.textContent, document.head);
       });

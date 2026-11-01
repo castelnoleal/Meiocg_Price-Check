@@ -140,6 +140,8 @@
 
 /* site nav: our "Prices" link */
 header.top .nav a.mpg-navlink{white-space:nowrap}
+header.top .tools a,header.top .tools button{white-space:nowrap}
+@media (max-width:1440px){header.top .nav:has(.mpg-navlink) a{padding-left:11px;padding-right:11px}}
 
 @media (max-width:680px){
   #mpg .mpg-hero{padding:34px 0 22px}
