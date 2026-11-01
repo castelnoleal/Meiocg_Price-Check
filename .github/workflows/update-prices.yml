@@ -54,7 +54,8 @@ jobs:
           SETS="${{ github.event.inputs.sets }}"
           # push runs: scraper/push-mode.txt = "full" or a comma list of set codes for a quick test
           if [ "${{ github.event_name }}" = "push" ] && [ -f scraper/push-mode.txt ]; then
-            M=$(tr -d ' \n' < scraper/push-mode.txt); [ "$M" != "full" ] && SETS="$M"
+            M=$(tr -d ' \n' < scraper/push-mode.txt)
+            if [ -n "$M" ] && [ "$M" != "full" ]; then SETS="$M"; fi
           fi
           if [ -n "$SETS" ]; then ARGS="$ARGS --sets $SETS"; fi
           python scraper/scrape.py $ARGS 2>&1 | tee scrape.log; exit ${PIPESTATUS[0]}

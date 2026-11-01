@@ -142,6 +142,17 @@ def yyt_list_sets(http: Http) -> dict[str, str]:
         return {}
     soup = BeautifulSoup(r.text, "lxml")
     sets: dict[str, str] = {}
+    # 収録弾 search panel: <input name="vers[]" value="imph" id="imphVers..."><label for=...>[IMPH] IMMORTAL PHOENIX</label>
+    for inp in soup.select('input[name="vers[]"]'):
+        v = (inp.get("value") or "").strip().lower()
+        if not v or v in SKIP_SET_CODES:
+            continue
+        lab = soup.find("label", attrs={"for": inp.get("id")}) if inp.get("id") else None
+        name = lab.get_text(" ", strip=True) if lab else ""
+        name = re.sub(r"^\[[^\]]+\]\s*", "", name).strip() or v.upper()
+        sets.setdefault(v, name)
+    if len(sets) > 20:
+        return sets
     for a in soup.select('a[href*="/sell/ygo/s/"]'):
         m = re.search(r"/sell/ygo/s/([a-z0-9_\-]+)", a.get("href", ""))
         if m and m.group(1) not in SKIP_SET_CODES:
@@ -173,6 +184,11 @@ def _stock(txt: str | None) -> int:
     if m:
         return int(m.group())
     return -1
+
+
+def code_guess(im) -> str:
+    m = CODE_RE.search(im.get("alt") or "")
+    return m.group(1) if m else "\x00"
 
 
 def yyt_parse_set(html: str, set_code: str) -> list[dict]:
@@ -207,7 +223,15 @@ def yyt_parse_set(html: str, set_code: str) -> list[dict]:
         if box is None:
             continue
         text = box.get_text(" ", strip=True)
-        img = box.find("img")
+        img = None
+        for im in box.find_all("img"):
+            src0 = im.get("data-src") or im.get("src") or ""
+            if "card.yuyu-tei.jp" in src0 or (im.get("alt") or "").startswith(code_guess(im)):
+                img = im
+                break
+        if img is None:
+            img = next((im for im in box.find_all("img") if (im.get("alt") or "").lower() != "star"
+                        and "btn-icon" not in (im.get("src") or "")), None)
         alt = (img.get("alt") if img else "") or ""
         label = alt or " ".join(x.get_text(" ", strip=True) for x in box.select('a[href*="/sell/ygo/card/"]'))
         code_m = CODE_RE.search(label) or CODE_RE.search(text)
@@ -261,9 +285,10 @@ def yyt_crawl(http: Http, only: list[str] | None, max_sets: int | None):
         cards = yyt_parse_set(r.text, code)
         # set name from the page <title> if the top page gave us nothing useful
         if sets.get(code, "").upper() == code.upper():
-            t = BeautifulSoup(r.text, "lxml").title
-            if t:
-                sets[code] = re.split(r"[|｜]", t.get_text())[0].strip()
+            soup = BeautifulSoup(r.text, "lxml")
+            h = soup.select_one("#power h3") or soup.title
+            if h:
+                sets[code] = re.sub(r"^\[[^\]]+\]\s*", "", re.split(r"[|｜]", h.get_text(" ", strip=True))[0]).strip()
         all_cards.extend(cards)
         if i % 25 == 0 or i == len(codes):
             log(f"  {i}/{len(codes)} sets, {len(all_cards)} cards")
@@ -292,10 +317,24 @@ RARITY_ALIASES = [
 ]
 
 
+SHORT_RARITY = {
+    "N": "N", "C": "N", "R": "R", "SR": "SR", "UR": "UR", "SE": "SE", "SER": "SE", "SCR": "SE", "SEC": "SE",
+    "PSE": "PSE", "PSER": "PSE", "PSCR": "PSE", "PSR": "PSE", "QCSE": "QCSE", "QCSER": "QCSE", "QCSCR": "QCSE",
+    "QCSR": "QCSE", "UL": "UL", "UTR": "UL", "CR": "CR", "HR": "HR", "HGR": "HR", "NP": "NP", "NPR": "NP",
+    "GR": "GR", "GSE": "GSE", "GSER": "GSE", "M": "M", "MLR": "M", "20THSE": "20thSE", "20SER": "20thSE",
+    "20SE": "20thSE", "EXSE": "EXSE", "ESR": "EXSE", "USE": "USE", "KC": "KC", "KCR": "KC", "P": "P", "PR": "P",
+}
+
+
 def norm_rarity(r: str) -> str:
     t = (r or "").strip().lower()
     if not t:
         return ""
+    k = re.sub(r"[\s*+.\-]", "", t).upper()
+    if k in SHORT_RARITY:
+        return SHORT_RARITY[k]
+    if len(k) <= 6 and not re.search(r"rare|secret", t):
+        return k
     for pat, out in RARITY_ALIASES:
         if re.search(pat, t):
             return out
@@ -322,7 +361,11 @@ def tc_crawl(http: Http, collection: str | None):
             if not m or "-JP" not in m.group(1):
                 continue  # only Japanese (OCG) printings
             paren = re.findall(r"\(([^()]*)\)", title)
-            rarity = norm_rarity(paren[-1]) if paren else ""
+            status = next((x for x in paren if re.search(r"status|condition|played|damaged", x, re.I)), "")
+            rar_raw = next((x for x in reversed(paren) if x is not status and x != status
+                            and not re.search(r"art|alt|status|edition|ver", x, re.I)), "")
+            rarity = norm_rarity(rar_raw)
+            srank = 0 if (not status or re.search(r"\bA\b|mint|NM", status)) else 1
             name = re.sub(CODE_RE, "", title)
             name = re.sub(r"\([^()]*\)", "", name)
             name = re.sub(r"\s*[-–|]\s*$|^\s*[-–|]\s*", "", name).strip(" -–|")
@@ -337,7 +380,8 @@ def tc_crawl(http: Http, collection: str | None):
                 img = p["images"][0].get("src", "")
             out.append({
                 "code": m.group(1), "rarity": rarity, "name": name,
-                "usd": min(prices), "avail": bool(avail),
+                "usd": min(prices), "avail": bool(avail), "srank": srank,
+                "alt": bool(re.search(r"extended art|alternate|alt art|art ", title, re.I)),
                 "handle": p.get("handle", ""), "img": img,
             })
         log(f"  TCG Corner page {page}: {len(out)} JP singles so far")
@@ -447,7 +491,12 @@ def main():
             hit = cands
         if hit:
             c = hit[0]
-            if c.get("tc") is None or t["usd"] < c["tc"]:
+            if t.get("alt"):
+                tc_only.append(t)
+                continue
+            better = (c.get("tc") is None or (t["srank"], t["usd"]) < (c.get("_tcr", 9), c["tc"]))
+            if better:
+                c["_tcr"] = t["srank"]
                 c["tc"], c["tch"], c["tca"] = t["usd"], t["handle"], t["avail"]
                 c["en"] = t["name"]
         else:
