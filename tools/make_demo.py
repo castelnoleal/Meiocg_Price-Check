@@ -65,6 +65,8 @@ jpy=lambda r: r[7] if r[7] else r[9]*151.3
 mv={"cols":cols,"date":today.isoformat(),
     "gainers":sorted([r for r in rows if (r[11] or 0)>0],key=lambda r:-r[11]),
     "losers":sorted([r for r in rows if (r[11] or 0)<0],key=lambda r:r[11]),
-    "top":sorted(rows,key=lambda r:-jpy(r))[:24]}
+    "top":sorted(rows,key=lambda r:-jpy(r))[:24],
+    "recent":[[k,v] for k,v in sets.items()],
+    "latest":{"code":"imph","name":sets["imph"],"count":8,"cards":sorted([r for r in rows if r[5]=="imph"],key=lambda r:-(r[7] or 0))}}
 open("web/demo-data.js","w").write("window.MEIOCG_PRICES_DEMO="+json.dumps({"index":index,"movers":mv,"history":hist},ensure_ascii=False)+";")
 print(len(rows),"demo cards")

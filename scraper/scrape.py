@@ -442,6 +442,19 @@ def pct(now, then):
     return round((now - then) / then * 100, 1)
 
 
+def latest_block(order, sets, cards, slim):
+    """Newest set on Yuyu-tei (first in its list that actually has priced cards) with all its cards."""
+    by = {}
+    for c in cards:
+        if c.get("yyt") is not None:
+            by.setdefault(c["set"], []).append(c)
+    for k in order:
+        if len(by.get(k, [])) >= 5:
+            cs = sorted(by[k], key=lambda c: -(c.get("yyt") or 0))
+            return {"code": k, "name": sets.get(k, k.upper()), "count": len(cs), "cards": [slim(c) for c in cs]}
+    return None
+
+
 # --------------------------------------------------------------------------- main
 def main():
     ap = argparse.ArgumentParser()
@@ -469,6 +482,8 @@ def main():
 
     only = [s.strip().lower() for s in a.sets.split(",")] if a.sets else None
     sets, yyt_cards, failed = yyt_crawl(http, only, a.max_sets)
+    # Yuyu-tei lists sets newest-first; keep that order to know the latest release
+    order = [k for k in sets] if (sets and not only) else list(old_index.get("order", []))
     for k, v in old_sets.items():  # keep names of sets we couldn't reload
         sets.setdefault(k, v)
     old_n = sum(1 for r in old_index.get("cards", []) if not str(r[0]).startswith("tc-"))
@@ -570,7 +585,7 @@ def main():
     rows = [[c.get(k) if c.get(k) is not None else ("" if k in ("en", "img", "tch") else None) for k in cols]
             for c in yyt_cards]
     index = {"updated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
-             "date": TODAY, "rates": rates, "sets": dict(sorted(sets.items())),
+             "date": TODAY, "rates": rates, "sets": dict(sorted(sets.items())), "order": order,
              "cols": cols, "cards": rows}
     (out / "index.json").write_text(json.dumps(index, ensure_ascii=False, separators=(",", ":")), "utf-8")
 
@@ -586,6 +601,8 @@ def main():
         "losers": [slim(c) for c in sorted([c for c in priced if (c.get("c7") or 0) < 0 and jpy(c) >= 300],
                                            key=lambda c: c["c7"])[:24]],
         "top": [slim(c) for c in sorted([c for c in priced if c.get("yyt")], key=lambda c: -c["yyt"])[:24]],
+        "recent": [[k, sets.get(k, k.upper())] for k in order[:10] if k in sets],
+        "latest": latest_block(order, sets, yyt_cards, slim),
     }
     (out / "movers.json").write_text(json.dumps(movers, ensure_ascii=False, separators=(",", ":")), "utf-8")
     meta = {"updated": index["updated"], "sets": len(sets), "cards": len(rows),

@@ -17,7 +17,7 @@
 
   var root, S = {
     idx: null, movers: null, cols: null, rows: [], sets: {}, rates: { JPY_PHP: 0.38, USD_PHP: 58, USD_JPY: 152 },
-    cur: store("mpg_cur") || "JPY", q: "", set: "", rar: "", sort: "price", stock: false, tab: "gainers",
+    cur: store("mpg_cur") || "JPY", q: "", set: "", rar: "", sort: "price", stock: false, tab: "latest",
     shown: PAGE, list: [], hist: {}, loadingIdx: false
   };
 
@@ -99,13 +99,13 @@
   /* ---------- shell ---------- */
   function build() {
     root.innerHTML = "";
-    var hero = el("div", { class: "mpg-hero" }, [el("div", { class: "mpg-wrap" }, [
+    var hero = el("div", { class: "mpg-hero" }, [el("div", { class: "mpg-wrap mpg-herogrid" }, [el("div", { class: "mpg-herotext" }, [
       el("span", { class: "mpg-pill", html: "<b>Live</b><i></i>Prices refresh every day" }),
       el("h1", { class: "mpg-title", html: "Know what your<br><span>cards are worth</span>" }),
       el("p", { class: "mpg-sub", text: "The MEIOCG Price Guide tracks Yu-Gi-Oh! OCG singles daily. Yuyu-tei is our standard price; when a card isn't listed there, we fall back to TCG Corner. Tap any card to see how its price has moved." }),
       el("div", { class: "mpg-tagline", html: "Yuyu-tei <em>◆</em> TCG Corner <em>◆</em> Price history" }),
       el("div", { class: "mpg-chips", id: "mpg-chips" })
-    ])]);
+    ]), el("div", { class: "mpg-herolatest", id: "mpg-herolatest" })])]);
     var search = el("div", { class: "mpg-search", html: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>' });
     var inp = el("input", { type: "search", placeholder: "Search card name (JP/EN), code e.g. IMPH-JP002, or set…", "aria-label": "Search cards", autocomplete: "off" });
     var t; inp.addEventListener("input", function () { clearTimeout(t); t = setTimeout(function () { S.q = inp.value; S.shown = PAGE; ensureIndex(); render(); }, 160); });
@@ -127,6 +127,7 @@
     var main = el("div", { class: "mpg-wrap" }, [
       el("p", { class: "mpg-kicker", id: "mpg-kick", text: "Market watch" }),
       el("div", { class: "mpg-tabs", id: "mpg-tabs" }),
+      el("div", { id: "mpg-latest" }),
       el("p", { class: "mpg-meta", id: "mpg-meta" }),
       el("div", { class: "mpg-grid", id: "mpg-grid" }),
       el("div", { id: "mpg-morewrap" }),
@@ -134,7 +135,7 @@
     ]);
     root.appendChild(hero); root.appendChild(bar); root.appendChild(main);
     var tabs = document.getElementById("mpg-tabs");
-    [["gainers", "Top risers · 7d"], ["losers", "Biggest drops · 7d"], ["top", "Most valuable"], ["all", "All cards"]].forEach(function (t) {
+    [["latest", "Latest set"], ["gainers", "Top risers · 7d"], ["losers", "Biggest drops · 7d"], ["top", "Most valuable"], ["all", "All cards"]].forEach(function (t) {
       tabs.appendChild(el("button", { type: "button", class: "mpg-tab" + (S.tab === t[0] ? " on" : ""), "data-t": t[0], text: t[1], onclick: function () {
         S.tab = t[0]; S.shown = PAGE;
         [].forEach.call(tabs.children, function (b) { b.className = "mpg-tab" + (b.getAttribute("data-t") === S.tab ? " on" : ""); });
@@ -192,7 +193,7 @@
   function compute() {
     var list;
     if (!filtering() && S.tab !== "all") {
-      var src = S.movers ? S.movers[S.tab] || [] : [];
+      var src = !S.movers ? [] : S.tab === "latest" ? (S.movers.latest ? S.movers.latest.cards : []) : S.movers[S.tab] || [];
       list = src.map(function (r) { var o = toObj(S.movers.cols, r); return S.byId && S.byId[o.id] ? S.byId[o.id] : prep(o); });
       return list;
     }
@@ -225,7 +226,9 @@
     S.list = list;
     if (filtering()) meta.textContent = list.length.toLocaleString() + " card" + (list.length === 1 ? "" : "s") + " found";
     else if (S.tab === "all") meta.textContent = "All " + list.length.toLocaleString() + " cards";
+    else if (S.tab === "latest") meta.textContent = "";
     else meta.textContent = { gainers: "Cards worth ¥300+ that rose the most over the last 7 days", losers: "Cards worth ¥300+ that dropped the most over the last 7 days", top: "The most expensive OCG singles right now" }[S.tab];
+    latestBanner(); heroLatest();
     g.innerHTML = "";
     if (!list.length) { g.appendChild(el("div", { class: "mpg-empty", style: "grid-column:1/-1", text: filtering() ? "No cards match. Try the Japanese name, the English name or the card code." : "Price changes appear once a few days of history have been collected." })); mw.innerHTML = ""; return; }
     var frag = document.createDocumentFragment();
@@ -233,6 +236,60 @@
     g.appendChild(frag);
     mw.innerHTML = "";
     if (list.length > S.shown) mw.appendChild(el("button", { type: "button", class: "mpg-more", text: "Show more (" + (list.length - S.shown).toLocaleString() + " left)", onclick: function () { S.shown += PAGE; render(); } }));
+  }
+  function latestBanner() {
+    var box = document.getElementById("mpg-latest"); if (!box) return;
+    var L = S.movers && S.movers.latest;
+    box.innerHTML = "";
+    if (filtering() || S.tab !== "latest" || !L) return;
+    var top = L.cards[0] ? toObj(S.movers.cols, L.cards[0]) : null;
+    var priced = L.cards.map(function (r) { return toObj(S.movers.cols, r).yyt; }).filter(function (v) { return v != null; });
+    var total = priced.reduce(function (a, b) { return a + b; }, 0);
+    var recent = (S.movers.recent || []).filter(function (r) { return r[0] !== L.code; }).slice(0, 7);
+    box.appendChild(el("div", { class: "mpg-latest" }, [
+      el("div", { class: "mpg-latest-main" }, [
+        el("div", { class: "mpg-latest-eyebrow", text: "Newest release on Yuyu-tei" }),
+        el("h2", { class: "mpg-latest-title" }, [el("span", { class: "mpg-latest-code", text: L.code.toUpperCase() }), L.name]),
+        el("div", { class: "mpg-latest-stats" }, [
+          el("div", {}, [el("small", { text: "Cards listed" }), el("b", { text: String(L.count) })]),
+          top ? el("div", {}, [el("small", { text: "Top card" }), el("b", { text: fmt(conv(top.yyt, "JPY", S.cur), S.cur) })]) : null,
+          el("div", {}, [el("small", { text: "Full set (1 of each)" }), el("b", { text: fmt(conv(total, "JPY", S.cur), S.cur) })])
+        ]),
+        el("button", { type: "button", class: "mpg-latest-btn", text: "Browse the whole set →", onclick: function () { pickSet(L.code); } })
+      ]),
+      recent.length ? el("div", { class: "mpg-latest-side" }, [el("small", { text: "Other recent sets" })].concat(recent.map(function (r) {
+        return el("button", { type: "button", class: "mpg-setchip", onclick: function () { pickSet(r[0]); } }, [el("b", { text: r[0].toUpperCase() }), el("span", { text: r[1] })]);
+      }))) : null
+    ]));
+  }
+  function heroLatest() {
+    var box = document.getElementById("mpg-herolatest"), L = S.movers && S.movers.latest;
+    if (!box || !L) return;
+    var cards = L.cards.slice(0, 3).map(function (r) { return prep(toObj(S.movers.cols, r)); });
+    box.innerHTML = "";
+    var fan = el("div", { class: "mpg-fan" }, cards.map(function (c, i) {
+      return el("button", { type: "button", class: "mpg-fancard f" + i, "aria-label": c.name, onclick: function () { openCard(S.byId && S.byId[c.id] || c); } }, [imgNode(c.img, c.code)]);
+    }));
+    var top = cards[0];
+    box.appendChild(el("div", { class: "mpg-hl" }, [
+      el("span", { class: "mpg-hl-badge", text: "Latest set" }),
+      fan,
+      el("div", { class: "mpg-hl-body" }, [
+        el("div", { class: "mpg-hl-code", text: L.code.toUpperCase() + " · " + L.count + " cards" }),
+        el("div", { class: "mpg-hl-name", text: L.name }),
+        top ? el("div", { class: "mpg-hl-top" }, [el("small", { text: "Top card" }), el("span", { text: top.name }), el("b", { text: fmt(mainPrice(top).v, S.cur) })]) : null,
+        el("button", { type: "button", class: "mpg-latest-btn", text: "See every price →", onclick: function () {
+          var tb = document.querySelector('#mpg-tabs [data-t="latest"]'); if (tb) tb.click();
+          var k = document.getElementById("mpg-kick"); if (k) window.scrollTo({ top: k.getBoundingClientRect().top + window.pageYOffset - 90, behavior: "smooth" });
+        } })
+      ])
+    ]));
+  }
+  function pickSet(code) {
+    S.set = code; S.shown = PAGE; S.sort = "price";
+    var sel = document.getElementById("mpg-set"); if (sel) sel.value = code;
+    ensureIndex(); render();
+    var bar = root.querySelector(".mpg-bar"); if (bar) window.scrollTo({ top: bar.getBoundingClientRect().top + window.pageYOffset - 70, behavior: "smooth" });
   }
   function chgBadge(v) {
     if (v == null || v === 0) return null;
@@ -500,7 +557,7 @@
     siteChrome();
     getJSON("movers.json").then(function (m) {
       S.movers = m; chips(); render();
-      if (!(m.gainers || []).length && S.tab === "gainers") { var tb = document.querySelector('#mpg-tabs [data-t="top"]'); if (tb) tb.click(); }
+      if (!m.latest && S.tab === "latest") { var tb = document.querySelector('#mpg-tabs [data-t="top"]'); if (tb) tb.click(); }
     }).catch(function () { S.tab = "all"; });
     ensureIndex();
     window.addEventListener("hashchange", deepLink);

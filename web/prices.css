@@ -57,7 +57,7 @@
 #mpg .mpg-card:focus-visible{outline:2px solid var(--brand,#7088ff);outline-offset:2px}
 #mpg .mpg-img{aspect-ratio:59/86;background:var(--surface-2,#181c2b);position:relative;display:flex;align-items:center;justify-content:center;padding:10px 10px 0}
 #mpg .mpg-img img{width:100%;height:100%;object-fit:contain;display:block;border-radius:5px;filter:drop-shadow(0 6px 10px rgba(0,0,0,.35))}
-#mpg .mpg-img .mpg-noimg,#mpg-modal .mpg-noimg{width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;font-family:"Chakra Petch",system-ui,sans-serif;font-size:12px;font-weight:700;color:var(--muted,#9aa2bb);text-align:center;padding:10px;background:var(--surface-2,#181c2b);border:1px dashed var(--line,#262b3d);border-radius:8px;letter-spacing:.04em}
+#mpg .mpg-img .mpg-noimg,#mpg .mpg-fancard .mpg-noimg,#mpg-modal .mpg-noimg{width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;font-family:"Chakra Petch",system-ui,sans-serif;font-size:12px;font-weight:700;color:var(--muted,#9aa2bb);text-align:center;padding:10px;background:var(--surface-2,#181c2b);border:1px dashed var(--line,#262b3d);border-radius:8px;letter-spacing:.04em}
 #mpg .mpg-rar{position:absolute;top:16px;left:16px;font-family:"Chakra Petch",system-ui,sans-serif;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:#3a4058;color:#fff;letter-spacing:.03em;box-shadow:0 2px 8px rgba(0,0,0,.35)}
 #mpg .mpg-chg{position:absolute;top:16px;right:16px;font-family:"Chakra Petch",system-ui,sans-serif;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:999px;box-shadow:0 2px 8px rgba(0,0,0,.35)}
 #mpg .up,#mpg-modal .up{color:var(--spell,#3fd0a8)}
@@ -138,16 +138,67 @@
 #mpg-modal .mpg-started{padding:36px 16px;text-align:center;color:var(--muted,#9aa2bb);font-size:15px}
 #mpg-modal .mpg-started b{display:block;font-family:"Chakra Petch",system-ui,sans-serif;color:var(--ink,#eef0f8);font-size:19px;margin-bottom:4px}
 
+/* hero: latest set feature */
+#mpg .mpg-herogrid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:36px;align-items:center}
+#mpg .mpg-herolatest:empty{display:none}
+#mpg .mpg-hl{position:relative;border-radius:22px;border:1px solid var(--line,#262b3d);background:var(--surface,#11141f);box-shadow:0 30px 60px -36px var(--shadow,rgba(0,0,0,.7));padding:22px 22px 20px;overflow:hidden}
+#mpg .mpg-hl::before{content:"";position:absolute;inset:0;background:radial-gradient(360px 220px at 50% 0%,var(--brand-soft,rgba(112,136,255,.15)),transparent 75%);pointer-events:none}
+#mpg .mpg-hl-badge{position:absolute;top:16px;left:16px;z-index:2;font-family:"Chakra Petch",system-ui,sans-serif;font-weight:700;font-size:13px;padding:4px 12px;border-radius:999px;background:var(--brand,#7088ff);color:var(--brand-ink,#0b0e1c)}
+#mpg .mpg-fan{position:relative;height:210px;margin:18px 0 6px}
+#mpg .mpg-fancard{position:absolute;top:0;left:50%;width:132px;aspect-ratio:59/86;padding:0;border:0;background:transparent;cursor:pointer;border-radius:7px;transition:transform .25s}
+#mpg .mpg-fancard img{width:100%;height:100%;object-fit:cover;border-radius:7px;box-shadow:0 14px 26px -10px rgba(0,0,0,.6);display:block}
+#mpg .mpg-fancard .mpg-noimg{height:100%}
+#mpg .mpg-fancard.f0{z-index:3;transform:translateX(-50%)}
+#mpg .mpg-fancard.f1{z-index:2;transform:translateX(-118%) rotate(-9deg) translateY(14px)}
+#mpg .mpg-fancard.f2{z-index:1;transform:translateX(18%) rotate(9deg) translateY(14px)}
+#mpg .mpg-fan:hover .mpg-fancard.f1{transform:translateX(-128%) rotate(-12deg) translateY(10px)}
+#mpg .mpg-fan:hover .mpg-fancard.f2{transform:translateX(28%) rotate(12deg) translateY(10px)}
+#mpg .mpg-fancard.f0:hover{transform:translateX(-50%) translateY(-6px)}
+#mpg .mpg-hl-body{position:relative}
+#mpg .mpg-hl-code{font-family:"Chakra Petch",system-ui,sans-serif;font-weight:700;font-size:13px;letter-spacing:.06em;color:var(--effect,#f39350)}
+#mpg .mpg-hl-name{font-family:"Chakra Petch","Arial Narrow",system-ui,sans-serif;font-weight:700;font-size:24px;line-height:1.15;margin:3px 0 12px;color:var(--ink,#eef0f8)}
+#mpg .mpg-hl-top{display:grid;grid-template-columns:1fr auto;gap:0 10px;align-items:center;padding:10px 14px;border-radius:14px;background:var(--bg,#090b14);border:1px solid var(--line,#262b3d);margin-bottom:14px}
+#mpg .mpg-hl-top small{grid-column:1/-1;font-family:"Chakra Petch",system-ui,sans-serif;font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted,#9aa2bb)}
+#mpg .mpg-hl-top span{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#mpg .mpg-hl-top b{font-family:"Chakra Petch",system-ui,sans-serif;font-size:19px}
+#mpg .mpg-hl .mpg-latest-btn{width:100%}
+
+/* latest set banner */
+#mpg .mpg-latest{display:grid;grid-template-columns:1.5fr 1fr;gap:16px;margin:4px 0 22px;padding:22px;border-radius:20px;border:1px solid var(--line,#262b3d);background:radial-gradient(520px 240px at 0% 0%,var(--brand-soft,rgba(112,136,255,.15)),transparent 70%),radial-gradient(420px 220px at 100% 100%,color-mix(in srgb,var(--effect,#f39350) 12%,transparent),transparent 70%),var(--surface,#11141f)}
+#mpg .mpg-latest-eyebrow{display:flex;align-items:center;gap:7px;font-family:"Chakra Petch",system-ui,sans-serif;font-weight:700;font-size:13.5px;letter-spacing:.04em;color:var(--effect,#f39350)}
+#mpg .mpg-latest-eyebrow::before{content:"";width:7px;height:7px;transform:rotate(45deg);background:currentColor;border-radius:1px}
+#mpg .mpg-latest-title{font-family:"Chakra Petch","Arial Narrow",system-ui,sans-serif;font-size:clamp(24px,3.2vw,36px);line-height:1.1;font-weight:700;margin:8px 0 14px;color:var(--ink,#eef0f8);letter-spacing:-.01em}
+#mpg .mpg-latest-code{display:inline-block;font-size:.5em;vertical-align:.35em;margin-right:10px;padding:3px 10px;border-radius:999px;background:var(--brand,#7088ff);color:var(--brand-ink,#0b0e1c);letter-spacing:.04em}
+#mpg .mpg-latest-stats{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+#mpg .mpg-latest-stats div{padding:9px 14px;border-radius:14px;background:var(--bg,#090b14);border:1px solid var(--line,#262b3d);min-width:120px}
+#mpg .mpg-latest-stats small,#mpg .mpg-latest-side small{display:block;font-family:"Chakra Petch",system-ui,sans-serif;font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted,#9aa2bb)}
+#mpg .mpg-latest-stats b{font-family:"Chakra Petch",system-ui,sans-serif;font-size:19px;color:var(--ink,#eef0f8)}
+#mpg .mpg-latest-btn{border:1px solid transparent;background:var(--brand,#7088ff);color:var(--brand-ink,#0b0e1c);font-family:"Chakra Petch",system-ui,sans-serif;font-weight:700;font-size:15.5px;padding:11px 22px;border-radius:999px;cursor:pointer;box-shadow:0 10px 24px -14px var(--brand,#7088ff);transition:transform .15s}
+#mpg .mpg-latest-btn:hover{transform:translateY(-2px)}
+#mpg .mpg-latest-side{display:flex;flex-direction:column;gap:7px;min-width:0}
+#mpg .mpg-latest-side small{margin-bottom:2px}
+#mpg .mpg-setchip{display:flex;align-items:center;gap:10px;text-align:left;border:1px solid var(--line,#262b3d);background:var(--bg,#090b14);border-radius:12px;padding:8px 12px;cursor:pointer;min-width:0;transition:border-color .15s}
+#mpg .mpg-setchip:hover{border-color:var(--brand,#7088ff)}
+#mpg .mpg-setchip b{font-family:"Chakra Petch",system-ui,sans-serif;font-size:13px;color:var(--brand,#7088ff);flex:none;min-width:44px}
+#mpg .mpg-setchip span{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
 /* site nav: our "Prices" link */
 header.top .nav a.mpg-navlink{white-space:nowrap}
 header.top .tools a,header.top .tools button{white-space:nowrap}
 @media (max-width:1440px){header.top .nav:has(.mpg-navlink) a{padding-left:11px;padding-right:11px}}
 
+@media (max-width:900px){
+  #mpg .mpg-herogrid{grid-template-columns:1fr;gap:26px}
+}
 @media (max-width:680px){
   #mpg .mpg-hero{padding:34px 0 22px}
   #mpg .mpg-tagline{letter-spacing:.12em;font-size:12px}
   #mpg .mpg-bar{position:static}
   #mpg .mpg-grid{grid-template-columns:repeat(2,1fr);gap:10px}
+  #mpg .mpg-latest{grid-template-columns:1fr;padding:16px}
+  #mpg .mpg-fan{height:170px}
+  #mpg .mpg-fancard{width:106px}
+  #mpg .mpg-latest-btn{width:100%}
   #mpg .mpg-name{font-size:14px}
   #mpg .mpg-price b{font-size:18px}
   #mpg select.mpg-sel{flex:1 1 40%;max-width:none;min-width:0;width:40%}
