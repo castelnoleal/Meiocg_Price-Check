@@ -128,9 +128,7 @@
       '<div class="mpgp-stats"><div><small>Top card</small><b>' + yen(top3[0] && top3[0].yyt) + "</b></div><div><small>Full set (1 of each)</small><b>" + yen(total) + "</b></div></div></a>" +
       '<div class="mpgp-list"><small>Most valuable in this set</small><ol>' + rows + "</ol>" +
       '<div class="mpgp-foot">Yuyu-tei prices, updated daily. Tap a card for its price history.</div></div></div>';
-    var sections = [].slice.call(main.children).filter(function (n) { return n.tagName === "SECTION" || n.tagName === "DIV"; });
-    var after = sections[0];
-    if (after && after.nextSibling) main.insertBefore(sec, after.nextSibling); else main.appendChild(sec);
+    main.appendChild(sec);   // lower portion of the home page, just above the footer
   }
 
   function start() {
