@@ -376,8 +376,8 @@ def tc_crawl(http: Http, collection: str | None):
             avail = [v for v in vs if v.get("available")]
             pool = avail or vs
             prices = [float(v["price"]) for v in pool if v.get("price")]
-            if not prices:
-                continue
+            if not prices or min(prices) >= 5000:
+                continue  # empty, or a "not for sale" placeholder price (e.g. $10,000)
             img = ""
             if p.get("images"):
                 img = p["images"][0].get("src", "")
@@ -585,7 +585,7 @@ def main():
                                             key=lambda c: -c["c7"])[:24]],
         "losers": [slim(c) for c in sorted([c for c in priced if (c.get("c7") or 0) < 0 and jpy(c) >= 300],
                                            key=lambda c: c["c7"])[:24]],
-        "top": [slim(c) for c in sorted(priced, key=lambda c: -jpy(c))[:24]],
+        "top": [slim(c) for c in sorted([c for c in priced if c.get("yyt")], key=lambda c: -c["yyt"])[:24]],
     }
     (out / "movers.json").write_text(json.dumps(movers, ensure_ascii=False, separators=(",", ":")), "utf-8")
     meta = {"updated": index["updated"], "sets": len(sets), "cards": len(rows),
