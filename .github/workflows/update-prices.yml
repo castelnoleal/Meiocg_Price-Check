@@ -47,11 +47,15 @@ jobs:
       - name: Scrape Yuyu-tei + TCG Corner
         env:
           TC_COLLECTION: ${{ vars.TC_COLLECTION }}
-          YYT_PROXY: ${{ vars.YYT_PROXY }}
+          YYT_PROXY: ${{ vars.YYT_PROXY || 'https://meiocg-price-relay.nolealtohka.workers.dev' }}
           SCRAPE_DEBUG_DIR: ${{ github.workspace }}/debug
         run: |
           ARGS="--out site-data"
           SETS="${{ github.event.inputs.sets }}"
+          # push runs: scraper/push-mode.txt = "full" or a comma list of set codes for a quick test
+          if [ "${{ github.event_name }}" = "push" ] && [ -f scraper/push-mode.txt ]; then
+            M=$(tr -d ' \n' < scraper/push-mode.txt); [ "$M" != "full" ] && SETS="$M"
+          fi
           if [ -n "$SETS" ]; then ARGS="$ARGS --sets $SETS"; fi
           python scraper/scrape.py $ARGS 2>&1 | tee scrape.log; exit ${PIPESTATUS[0]}
 
