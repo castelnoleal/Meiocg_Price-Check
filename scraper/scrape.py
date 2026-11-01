@@ -138,7 +138,8 @@ def yyt_list_sets(http: Http) -> dict[str, str]:
     """Return {set_code: set_name} from the Yuyu-tei OCG top page (links + 収録弾 dropdown)."""
     r = http.get(YYT_TOP)
     if not r:
-        raise SystemExit("Could not load Yuyu-tei top page")
+        gh_note("warning", "Could not load Yuyu-tei top page (blocked?) — keeping previous Yuyu-tei prices")
+        return {}
     soup = BeautifulSoup(r.text, "lxml")
     sets: dict[str, str] = {}
     for a in soup.select('a[href*="/sell/ygo/s/"]'):
@@ -243,6 +244,8 @@ def yyt_parse_set(html: str, set_code: str) -> list[dict]:
 
 def yyt_crawl(http: Http, only: list[str] | None, max_sets: int | None):
     sets = yyt_list_sets(http)
+    if not sets:
+        return {}, [], ["*"]
     if only:
         sets = {k: sets.get(k, k.upper()) for k in only}
     codes = sorted(sets)
@@ -422,7 +425,10 @@ def main():
     for k, v in old_sets.items():  # keep names of sets we couldn't reload
         sets.setdefault(k, v)
     old_n = sum(1 for r in old_index.get("cards", []) if not str(r[0]).startswith("tc-"))
-    if not yyt_cards or (not only and old_n and len(yyt_cards) < old_n * 0.5):
+    yyt_down = failed == ["*"]
+    if yyt_down:
+        failed = sorted(old_sets) or []
+    elif not yyt_cards or (not only and old_n and len(yyt_cards) < old_n * 0.5):
         raise SystemExit(f"Yuyu-tei returned {len(yyt_cards)} cards (last run {old_n}). "
                          "Site blocked or markup changed — keeping yesterday's data.")
 
@@ -452,7 +458,7 @@ def main():
         cols = old_index["cols"]
         for row in old_index["cards"]:
             r = dict(zip(cols, row))
-            if r.get("set") in failed:
+            if r.get("set") in failed and r.get("set") != "_tc":
                 yyt_cards.append({"id": r["id"], "set": r["set"], "yid": r["id"].split("-")[-1],
                                   "code": r["code"], "rarity": r["rarity"], "name": r["name"],
                                   "en": r.get("en", ""), "img": r.get("img", ""), "yyt": r.get("yyt"),
@@ -494,6 +500,9 @@ def main():
         if changed or not hp.exists():
             hp.write_text(json.dumps(hist, ensure_ascii=False, separators=(",", ":")), "utf-8")
 
+    if not yyt_cards:
+        raise SystemExit("No cards from Yuyu-tei or TCG Corner — refusing to publish an empty index")
+
     # --- index.json (compact rows)
     rates = fx_rates(http, old_index.get("rates"))
     cols = ["id", "code", "rarity", "name", "en", "set", "img", "yyt", "stock", "tc", "tch", "c7", "c30"]
@@ -525,8 +534,9 @@ def main():
             "tc_only": len(tc_only), "failed_sets": failed}
     (out / "meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1), "utf-8")
     log(json.dumps(meta, ensure_ascii=False))
-    if len(rows) == 0:
-        raise SystemExit("No cards scraped — refusing to publish an empty index")
+    gh_note("notice", "Result: " + json.dumps(meta, ensure_ascii=False)[:500])
+    if yyt_down:
+        gh_note("warning", "Yuyu-tei unreachable this run; published TCG Corner prices + carried-over Yuyu-tei data")
 
 
 if __name__ == "__main__":
