@@ -21,6 +21,9 @@
     shown: PAGE, list: [], hist: {}, loadingIdx: false
   };
 
+  function tok(name, fb) {
+    try { var v = getComputedStyle(document.documentElement).getPropertyValue("--" + name).trim(); return v || fb; } catch (e) { return fb; }
+  }
   function store(k, v) {
     try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; }
   }
@@ -97,12 +100,13 @@
   function build() {
     root.innerHTML = "";
     var hero = el("div", { class: "mpg-hero" }, [el("div", { class: "mpg-wrap" }, [
-      el("div", { class: "mpg-kicker", html: "<i></i>Meta Insider OCG · Price Guide" }),
-      el("h1", { class: "mpg-title", html: "OCG card prices, <span>tracked daily</span>" }),
-      el("p", { class: "mpg-sub", text: "Standard prices come from Yuyu-tei (Japan). When a card isn't listed there, we fall back to TCG Corner. Tap any card to see how its price has moved." }),
+      el("span", { class: "mpg-pill", html: "<b>Live</b><i></i>Prices refresh every day" }),
+      el("h1", { class: "mpg-title", html: "Know what your<br><span>cards are worth</span>" }),
+      el("p", { class: "mpg-sub", text: "The MEIOCG Price Guide tracks Yu-Gi-Oh! OCG singles daily. Yuyu-tei is our standard price; when a card isn't listed there, we fall back to TCG Corner. Tap any card to see how its price has moved." }),
+      el("div", { class: "mpg-tagline", html: "Yuyu-tei <em>◆</em> TCG Corner <em>◆</em> Price history" }),
       el("div", { class: "mpg-chips", id: "mpg-chips" })
     ])]);
-    var search = el("div", { class: "mpg-search", html: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>' });
+    var search = el("div", { class: "mpg-search", html: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>' });
     var inp = el("input", { type: "search", placeholder: "Search card name (JP/EN), code e.g. IMPH-JP002, or set…", "aria-label": "Search cards", autocomplete: "off" });
     var t; inp.addEventListener("input", function () { clearTimeout(t); t = setTimeout(function () { S.q = inp.value; S.shown = PAGE; ensureIndex(); render(); }, 160); });
     search.appendChild(inp);
@@ -121,6 +125,7 @@
     var tog = el("label", { class: "mpg-toggle" }, [el("input", { type: "checkbox", onchange: function () { S.stock = this.checked; S.shown = PAGE; ensureIndex(); render(); } }), "In stock at Yuyu-tei"]);
     var bar = el("div", { class: "mpg-bar" }, [el("div", { class: "mpg-wrap" }, [el("div", { class: "mpg-row" }, [search, setSel, rarSel, sortSel, seg, tog])])]);
     var main = el("div", { class: "mpg-wrap" }, [
+      el("p", { class: "mpg-kicker", id: "mpg-kick", text: "Market watch" }),
       el("div", { class: "mpg-tabs", id: "mpg-tabs" }),
       el("p", { class: "mpg-meta", id: "mpg-meta" }),
       el("div", { class: "mpg-grid", id: "mpg-grid" }),
@@ -129,7 +134,7 @@
     ]);
     root.appendChild(hero); root.appendChild(bar); root.appendChild(main);
     var tabs = document.getElementById("mpg-tabs");
-    [["gainers", "📈 Top risers · 7d"], ["losers", "📉 Biggest drops · 7d"], ["top", "💎 Most valuable"], ["all", "All cards"]].forEach(function (t) {
+    [["gainers", "Top risers · 7d"], ["losers", "Biggest drops · 7d"], ["top", "Most valuable"], ["all", "All cards"]].forEach(function (t) {
       tabs.appendChild(el("button", { type: "button", class: "mpg-tab" + (S.tab === t[0] ? " on" : ""), "data-t": t[0], text: t[1], onclick: function () {
         S.tab = t[0]; S.shown = PAGE;
         [].forEach.call(tabs.children, function (b) { b.className = "mpg-tab" + (b.getAttribute("data-t") === S.tab ? " on" : ""); });
@@ -152,8 +157,8 @@
     if (S.idx) parts.push("<b>" + S.rows.length.toLocaleString() + "</b> cards");
     parts.push("¥100 = <b>₱" + (100 * S.rates.JPY_PHP).toFixed(2) + "</b>");
     parts.push("$1 = <b>₱" + S.rates.USD_PHP.toFixed(2) + "</b>");
-    parts.push('<span class="mpg-dot" style="background:#f2c14e"></span>Yuyu-tei = standard');
-    parts.push('<span class="mpg-dot" style="background:#4cc9f0"></span>TCG Corner = fallback');
+    parts.push('<span class="mpg-dot" style="background:' + tok("brand", "#7088ff") + '"></span>Yuyu-tei = standard');
+    parts.push('<span class="mpg-dot" style="background:' + tok("effect", "#f39350") + '"></span>TCG Corner = fallback');
     c.innerHTML = parts.map(function (p) { return '<span class="mpg-chip">' + p + "</span>"; }).join("");
   }
   function fillFilters() {
@@ -214,6 +219,7 @@
   function render() {
     var g = document.getElementById("mpg-grid"), meta = document.getElementById("mpg-meta"), mw = document.getElementById("mpg-morewrap");
     document.getElementById("mpg-tabs").style.display = filtering() ? "none" : "flex";
+    document.getElementById("mpg-kick").textContent = filtering() ? "Search results" : "Market watch";
     var list = compute();
     if (list === null) { skeleton(); meta.textContent = "Loading the full price list…"; mw.innerHTML = ""; return; }
     S.list = list;
@@ -296,13 +302,13 @@
     var tBox = c.tc != null
       ? el(L.t ? "a" : "div", { class: "mpg-pbox" + (c.yyt == null ? " main" : ""), href: L.t || "", target: "_blank", rel: "noopener" }, [el("small", { text: "TCG Corner · " + (c.yyt == null ? "fallback" : "reference") }), el("strong", { text: fmt(conv(c.tc, "USD", S.cur), S.cur) }), el("span", { text: (S.cur !== "USD" ? fmt(c.tc, "USD") + " · " : "") + "view store ↗" })])
       : el("div", { class: "mpg-pbox na" }, [el("small", { text: "TCG Corner · reference" }), el("strong", { text: "Not listed" }), el("span", { text: "No matching listing found" })]);
-    var tags = [c.code, c.rarity, c.setName].filter(Boolean).map(function (t) { return el("span", { class: "mpg-tag", text: t }); });
+    var tags = [c.code, c.rarity].filter(Boolean).map(function (t) { return el("span", { class: "mpg-tag", text: t }); });
     var histWrap = el("div", { class: "mpg-sec" }, [el("div", { class: "mpg-loading", text: "Loading price history…" })]);
     var dlg = el("div", { class: "mpg-dlg" }, [
       el("div", { class: "mpg-top" }, [
         el("button", { type: "button", class: "mpg-x", "aria-label": "Close", text: "×", onclick: closeCard }),
         el("div", { class: "mpg-bigimg" }, [imgEl]),
-        el("div", {}, [el("h2", { text: c.name }), c.en && c.en !== c.name ? el("div", { class: "mpg-en2", text: c.en }) : null, el("div", { class: "mpg-tags" }, tags)]),
+        el("div", {}, [el("div", { class: "mpg-eyebrow", text: c.setName }), el("h2", { text: c.name }), c.en && c.en !== c.name ? el("div", { class: "mpg-en2", text: c.en }) : null, el("div", { class: "mpg-tags" }, tags)]),
         el("div", { class: "mpg-prices" }, [yBox, tBox])
       ]),
       histWrap
@@ -320,10 +326,11 @@
   function fdate(iso, long) { var d = new Date(iso + "T00:00:00Z"); return d.toLocaleDateString("en-PH", long ? { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" } : { month: "short", day: "numeric", timeZone: "UTC" }); }
 
   function drawHistory(wrap, c, h) {
+    var MUT_ = tok("muted", "#9aa2bb");
     var today = (S.idx && S.idx.date) || (S.movers && S.movers.date) || new Date().toISOString().slice(0, 10);
     var series = [];
-    if (h.y && h.y.length) series.push({ k: "y", name: "Yuyu-tei", col: "#f2c14e", from: "JPY", pts: h.y });
-    if (h.t && h.t.length) series.push({ k: "t", name: "TCG Corner", col: "#4cc9f0", from: "USD", pts: h.t });
+    if (h.y && h.y.length) series.push({ k: "y", name: "Yuyu-tei", col: tok("brand", "#7088ff"), from: "JPY", pts: h.y });
+    if (h.t && h.t.length) series.push({ k: "t", name: "TCG Corner", col: tok("effect", "#f39350"), from: "USD", pts: h.t });
     wrap.innerHTML = "";
     if (!series.length) { wrap.appendChild(el("div", { class: "mpg-loading", text: "No price history recorded for this card yet." })); return; }
     var first = series.reduce(function (m, s) { return s.pts[0][0] < m ? s.pts[0][0] : m; }, today);
@@ -358,7 +365,7 @@
     ]));
 
     if (first >= today) {
-      wrap.appendChild(el("div", { class: "mpg-chart", html: '<div style="padding:34px 16px;text-align:center;color:#a3a8bd;font-size:14px"><b style="color:#fff;font-size:16px">Price tracking started ' + esc(fdate(first, true)) + '</b><br>The chart builds automatically as prices are checked each day. Every price change will show up here.</div>' }));
+      wrap.appendChild(el("div", { class: "mpg-chart", html: '<div class="mpg-started"><b>Price tracking started ' + esc(fdate(first, true)) + '</b>The chart builds automatically as prices are checked each day. Every price change will show up here.</div>' }));
       return finish();
     }
     // chart
@@ -373,17 +380,18 @@
     var x0 = dnum(start), x1 = dnum(today); if (x1 === x0) x0 -= 1;
     var X = function (d) { return pl + (dnum(d) - x0) / (x1 - x0) * (W - pl - pr); };
     var Y = function (v) { return pt + (1 - (v - ymin) / (ymax - ymin)) * (H - pt - pb); };
+    var LINE = tok("line", "#262b3d"), MUT = tok("muted", "#9aa2bb"), SURF = tok("surface", "#11141f");
     var svg = '<svg viewBox="0 0 ' + W + " " + H + '" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Price history chart">';
     svg += '<defs><linearGradient id="mpgG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + prim.col + '" stop-opacity=".28"/><stop offset="1" stop-color="' + prim.col + '" stop-opacity="0"/></linearGradient></defs>';
     for (var i = 0; i <= nT; i++) {
       var v = ymin + stp * i, y = Y(v);
-      svg += '<line x1="' + pl + '" x2="' + (W - pr) + '" y1="' + y + '" y2="' + y + '" stroke="#1d2233" stroke-width="1"/>';
-      svg += '<text x="' + (pl - 8) + '" y="' + (y + 4) + '" fill="#6b7089" font-size="11" text-anchor="end">' + esc(fmt(v, S.cur)) + "</text>";
+      svg += '<line x1="' + pl + '" x2="' + (W - pr) + '" y1="' + y + '" y2="' + y + '" stroke="' + LINE + '" stroke-width="1"/>';
+      svg += '<text x="' + (pl - 8) + '" y="' + (y + 4) + '" fill="' + MUT + '" font-size="11" font-family="Chakra Petch,system-ui,sans-serif" text-anchor="end">' + esc(fmt(v, S.cur)) + "</text>";
     }
     var span = x1 - x0, ticks = Math.min(W < 520 ? 3 : 5, Math.max(1, Math.round(span)));
     for (var j = 0; j <= ticks; j++) {
       var dd = addDays(start, Math.round(span * j / ticks));
-      svg += '<text x="' + X(dd) + '" y="' + (H - 8) + '" fill="#6b7089" font-size="11" text-anchor="' + (j === 0 ? "start" : j === ticks ? "end" : "middle") + '">' + esc(fdate(dd, span > 300)) + "</text>";
+      svg += '<text x="' + X(dd) + '" y="' + (H - 8) + '" fill="' + MUT + '" font-size="11" font-family="Chakra Petch,system-ui,sans-serif" text-anchor="' + (j === 0 ? "start" : j === ticks ? "end" : "middle") + '">' + esc(fdate(dd, span > 300)) + "</text>";
     }
     series.slice().reverse().forEach(function (s) {
       var d = "", p = s.win;
@@ -392,9 +400,9 @@
       }
       if (s === prim) svg += '<path d="' + d + "V" + (H - pb) + "H" + X(p[0][0]).toFixed(1) + 'Z" fill="url(#mpgG)"/>';
       svg += '<path d="' + d + '" fill="none" stroke="' + s.col + '" stroke-width="' + (s === prim ? 2.5 : 2) + '" stroke-linejoin="round"' + (s === prim ? "" : ' stroke-dasharray="5 4"') + "/>";
-      p.forEach(function (q, k) { if (k > 0 && k < p.length - 1) svg += '<circle cx="' + X(q[0]).toFixed(1) + '" cy="' + Y(q[1]).toFixed(1) + '" r="3" fill="#0c0f18" stroke="' + s.col + '" stroke-width="2"/>'; });
+      p.forEach(function (q, k) { if (k > 0 && k < p.length - 1) svg += '<circle cx="' + X(q[0]).toFixed(1) + '" cy="' + Y(q[1]).toFixed(1) + '" r="3.5" fill="' + SURF + '" stroke="' + s.col + '" stroke-width="2"/>'; });
     });
-    svg += '<line id="mpg-cx" x1="0" x2="0" y1="' + pt + '" y2="' + (H - pb) + '" stroke="#8b90a8" stroke-dasharray="3 3" visibility="hidden"/>';
+    svg += '<line id="mpg-cx" x1="0" x2="0" y1="' + pt + '" y2="' + (H - pb) + '" stroke="' + MUT + '" stroke-dasharray="3 3" visibility="hidden"/>';
     svg += '<rect id="mpg-hit" x="' + pl + '" y="0" width="' + (W - pl - pr) + '" height="' + H + '" fill="transparent"/></svg>';
     var tip = el("div", { class: "mpg-tip" });
     var chart = el("div", { class: "mpg-chart", html: svg }); chart.appendChild(tip);
@@ -409,7 +417,7 @@
       var html = "<b>" + esc(fdate(day, true)) + "</b>";
       series.forEach(function (s) {
         var raw = at(s.pts, day);
-        if (raw != null) html += '<br><span class="mpg-dot" style="background:' + s.col + '"></span>' + s.name + ": <b>" + esc(fmt(conv(raw, s.from, S.cur), S.cur)) + "</b>" + (S.cur !== s.from ? ' <span style="color:#7d839b">(' + esc(fmt(raw, s.from)) + ")</span>" : "");
+        if (raw != null) html += '<br><span class="mpg-dot" style="background:' + s.col + '"></span>' + s.name + ": <b>" + esc(fmt(conv(raw, s.from, S.cur), S.cur)) + "</b>" + (S.cur !== s.from ? ' <span style="color:' + MUT_ + '">(' + esc(fmt(raw, s.from)) + ")</span>" : "");
       });
       tip.innerHTML = html; tip.style.display = "block";
       var tx = X(day) / W * r.width + 12; if (tx + tip.offsetWidth > r.width) tx = X(day) / W * r.width - tip.offsetWidth - 12;
@@ -433,7 +441,7 @@
     });
     rows.sort(function (a, b) { return a.d < b.d ? 1 : a.d > b.d ? -1 : 0; });
     var tb = rows.slice(0, 120).map(function (r) {
-      var delta = r.prev == null ? '<span style="color:#7d839b">First seen</span>' : (function () { var p = (r.v - r.prev) / r.prev * 100; return '<span class="' + (p > 0 ? "up" : "down") + '">' + (p > 0 ? "▲ +" : "▼ ") + p.toFixed(1) + "%</span>"; })();
+      var delta = r.prev == null ? '<span style="color:' + MUT_ + '">First seen</span>' : (function () { var p = (r.v - r.prev) / r.prev * 100; return '<span class="' + (p > 0 ? "up" : "down") + '">' + (p > 0 ? "▲ +" : "▼ ") + p.toFixed(1) + "%</span>"; })();
       return "<tr><td>" + esc(fdate(r.d, true)) + '</td><td><span class="mpg-dot" style="background:' + r.s.col + '"></span>' + r.s.name + '</td><td class="r"><b>' + esc(fmt(conv(r.v, r.s.from, S.cur), S.cur)) + "</b>" + (S.cur !== r.s.from ? '<br><span style="color:#7d839b;font-size:11.5px">' + esc(fmt(r.v, r.s.from)) + "</span>" : "") + '</td><td class="r">' + delta + "</td></tr>";
     }).join("");
     wrap.appendChild(el("div", { class: "mpg-log", html: '<table><thead><tr><th>Date</th><th>Source</th><th class="r">Price</th><th class="r">Change</th></tr></thead><tbody>' + tb + "</tbody></table>" }));
@@ -442,11 +450,51 @@
     function stat(l, v, cls) { return el("div", { class: "mpg-stat" }, [el("small", { text: l }), el("b", { class: cls || "", text: v })]); }
   }
 
+  /* ---------- meiocg.org site chrome ----------
+     Borrows the live header, footer, search dialog, theme script and stylesheet from the home page,
+     so the price guide always matches the rest of the site (and follows its light/dark theme). */
+  function siteChrome() {
+    if (document.querySelector("header.top") || !/(^|\.)meiocg\.org$/.test(location.hostname) || window.MEIOCG_NO_CHROME) return Promise.resolve(false);
+    return fetch("/", { credentials: "same-origin" }).then(function (r) { return r.text(); }).then(function (html) {
+      var d = new DOMParser().parseFromString(html, "text/html");
+      var inl = [].filter.call(d.querySelectorAll("script"), function (s) { return !s.src; });
+      function run(code, where) { var s = document.createElement("script"); s.textContent = code; (where || document.body).appendChild(s); }
+      inl.forEach(function (s) {  // theme + site stylesheet loaders live in <head>
+        if (s.closest("head") && (s.textContent.indexOf("data-theme") >= 0 || s.textContent.indexOf("mei-css") >= 0)) run(s.textContent, document.head);
+      });
+      var first = document.body.firstChild;
+      ["a.skip", "div.progress", "header.top"].forEach(function (q) {
+        var n = d.querySelector(q); if (n) document.body.insertBefore(document.importNode(n, true), first);
+      });
+      ["footer.foot", "div.search-dlg", "button.iconbtn", "aside.pixel"].forEach(function (q) {
+        var n = d.querySelector(q); if (n) document.body.appendChild(document.importNode(n, true));
+      });
+      var nav = document.querySelector("header.top .nav");
+      if (nav) {
+        [].forEach.call(nav.querySelectorAll("[aria-current]"), function (a) { a.removeAttribute("aria-current"); });
+        var mine = [].filter.call(nav.querySelectorAll("a"), function (a) { return /\/prices\/?$/.test(a.getAttribute("href") || ""); })[0];
+        if (!mine) { mine = el("a", { href: "/prices/", class: "mpg-navlink", text: "Prices" }); var ab = [].filter.call(nav.querySelectorAll("a"), function (a) { return /about/i.test(a.getAttribute("href") || ""); })[0]; nav.insertBefore(mine, ab || null); }
+        mine.setAttribute("aria-current", "page");
+      }
+      // site behaviour (search, theme toggle, menu): the body loader that unpacks a script
+      inl.forEach(function (s) {
+        if (!s.closest("head") && s.textContent.length > 2000 && s.textContent.indexOf("createElement('script')") >= 0) run(s.textContent);
+      });
+      var hd = document.querySelector("header.top"), bar = root.querySelector(".mpg-bar");
+      function stick() { if (hd && bar && getComputedStyle(hd).position === "sticky") bar.style.top = hd.offsetHeight + "px"; }
+      stick(); setTimeout(stick, 600); window.addEventListener("resize", stick);
+      new MutationObserver(function () { chips(); if (S.open) openCard(S.open, true); })
+        .observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+      return true;
+    }).catch(function () { return false; });
+  }
+
   /* ---------- boot ---------- */
   function boot() {
     root = document.getElementById("mpg");
     if (!root) { root = el("div", { id: "mpg" }); (document.currentScript && document.currentScript.parentNode || document.body).appendChild(root); }
     build();
+    siteChrome();
     getJSON("movers.json").then(function (m) {
       S.movers = m; chips(); render();
       if (!(m.gainers || []).length && S.tab === "gainers") { var tb = document.querySelector('#mpg-tabs [data-t="top"]'); if (tb) tb.click(); }
