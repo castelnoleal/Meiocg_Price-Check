@@ -50,6 +50,29 @@ TODAY = dt.datetime.now(dt.timezone(dt.timedelta(hours=8))).date().isoformat()  
 
 
 # --------------------------------------------------------------------------- http
+DEBUG_DIR = os.getenv("SCRAPE_DEBUG_DIR")
+_dbg_n = 0
+
+
+def gh_note(level: str, msg: str):
+    """Print a GitHub Actions annotation (visible on the run page) and a normal log line."""
+    if os.getenv("GITHUB_ACTIONS"):
+        print(f"::{level}::{msg}", flush=True)
+    log(msg)
+
+
+def save_debug(url: str, r):
+    global _dbg_n
+    if not DEBUG_DIR or _dbg_n >= 6:
+        return
+    _dbg_n += 1
+    d = Path(DEBUG_DIR); d.mkdir(parents=True, exist_ok=True)
+    name = re.sub(r"[^a-z0-9]+", "_", url.lower())[-60:]
+    body = r.text if r is not None else ""
+    st = r.status_code if r is not None else "ERR"
+    (d / f"{_dbg_n:02d}_{st}_{name}.html").write_text(body[:400000], "utf-8")
+
+
 class Http:
     def __init__(self, delay: float):
         self.s = requests.Session()
@@ -65,13 +88,14 @@ class Http:
             self._last = time.time()
             try:
                 r = self.s.get(url, timeout=30, **kw)
+                save_debug(url, r)
                 if r.status_code == 200:
                     return r
                 if r.status_code in (404, 410):
                     return None
-                log(f"  HTTP {r.status_code} {url} (attempt {attempt + 1})")
+                gh_note("warning", f"HTTP {r.status_code} {url} (attempt {attempt + 1}) server={r.headers.get('server')}")
             except requests.RequestException as e:
-                log(f"  {type(e).__name__} {url} (attempt {attempt + 1})")
+                gh_note("warning", f"{type(e).__name__}: {e} — {url} (attempt {attempt + 1})")
             time.sleep(5 * (attempt + 1))
         return None
 
@@ -477,4 +501,13 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SystemExit as e:
+        if e.code not in (None, 0):
+            gh_note("error", str(e.code))
+        raise
+    except Exception as e:
+        import traceback
+        gh_note("error", f"{type(e).__name__}: {e} | " + traceback.format_exc().replace(chr(10), " / ")[-900:])
+        raise
